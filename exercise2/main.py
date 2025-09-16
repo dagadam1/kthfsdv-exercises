@@ -2,31 +2,48 @@ import numpy as np
 import matplotlib.pyplot as plt
 import periodicity_detection as pyd
 from collections.abc import Callable
+from dataclasses import dataclass
+
+@dataclass
+class PlotSettings:
+    """Settings for plotters.
+    
+    title (str): The title shown in the plot window.
+    x_log_scale (bool): Whether the x axis should use logarithmic scale (True) of linear (False, default).
+    y_log_scale (bool): Whether the y axis should use logarithmic scale (True) of linear (False, default).
+    """
+    title: str
+    x_log_scale: bool = False
+    y_log_scale: bool = False
 
 class BasePlotter:
-    """Base class for plotters. Handles common plot setup and settings
+    """Base class for plotters. Handles common plot setup and settings.
     
     Args:
-        title: The title of the plot window.
+        settings: Instance of `PlotSettings`.
     """
-    def __init__(self, title: str):
-        self.title = title
+    def __init__(self, settings: PlotSettings):
+        self._settings = settings
         
     def _plot_setup(self):
-        plt.suptitle(self.title)
+        plt.suptitle(self._settings.title)
+        plt.xscale("log" if self._settings.x_log_scale else "linear")
+        plt.yscale("log" if self._settings.y_log_scale else "linear")
+        
+        
 
 class FunctionPlotter(BasePlotter):
     """Plotter that plots a function in an interval.
     
     Args:
-        title (str): Title of plot window.
+        settings: Instance of `PlotSettings`.
         func: The periodic function to plot.
         start_x (float): The start of the interval to plot.
         stop_x (float): The end of the interval to plot.
         step (float): The step size of the values plotted.
     """
-    def __init__(self, title: str, func: Callable[[float], float], start_x: float, stop_x: float, step: float = 1e-5):
-        super().__init__(title)
+    def __init__(self, settings: PlotSettings, func: Callable[[float], float], start_x: float, stop_x: float, step: float = 1e-5):
+        super().__init__(settings)
         self._func = func
         self._start_x = start_x
         self._stop_x = stop_x
@@ -42,17 +59,21 @@ class FunctionPlotter(BasePlotter):
         plt.show()
         
 class PeriodicFunctionPlotter(FunctionPlotter):
-    """Plotter that plots a number of periods of a periodic function. The periodicity of the function is estimated.
+    """Plotter that plots a number of periods of a periodic function. The periodicity of the function is estimated in the interval `start_x` to `stop_x`.
+    The plot then starts at `start_x` and ends after the specified number of periods. This class assumes the function is periodic.
 
     Args:
+        settings: Instance of `PlotSettings`.
         periodic_func: The periodic function to plot.
-        start_x (float): The function value the graph starts at. This is also the start of the interval which is checked for periodicity.
-        stop_x (float): The end of the interval which is checked for periodicity. (The graph will stop after a number of periods and will not reach stop_x)
+        start_x (float): The start of the graph and the interval which is checked for periodicity.
+        stop_x (float): The end of the interval which is checked for periodicity. (The graph will stop after `period` number of periods and will not reach stop_x)
         periods (int): Number of periods to plot.
         step (float): The step size of both the graph and the periodicity estimate.
     """
     
-    def __init__(self, periodic_func: Callable[[float], float], start_x: float, stop_x: float,  periods: int = 2, step: float = 1e-2):
+    def __init__(self, settings: PlotSettings, periodic_func: Callable[[float], float], start_x: float, stop_x: float,  periods: int = 2, step: float = 1e-2):
+        self.periods = periods
+        
         # Make arrays in order to check periodicity. Has potential for optimization since this has to be done again when plotting
         _, y = make_arrays(periodic_func, start_x, stop_x, step)
         
@@ -62,7 +83,12 @@ class PeriodicFunctionPlotter(FunctionPlotter):
         # Set new end point after `periods` number of periods
         end = start_x + periods * step * period_length
         
-        super().__init__(f"Showing {periods} periods", periodic_func, start_x, end, step)
+        super().__init__(settings, periodic_func, start_x, end, step)
+        
+    def plot(self):
+        """Generates the plot"""
+        plt.title(f"Showing {self.periods} periods")
+        super().plot()
         
         
 def make_arrays(func: Callable[[float], float], start_x: float, stop_x: float, step: float) -> tuple[np.ndarray, np.ndarray]:
@@ -90,8 +116,8 @@ def lmbda(t: float) -> float:
     return 5 * np.sin(2*np.pi*t)
 
 def main():
-    """Generate a plot of 2 periods of `h`"""
-    plot = PeriodicFunctionPlotter(h, 0, 1000, 2)
+    """Generate a plot of 2 periods of `h`. When it is closed a plot of """
+    plot = PeriodicFunctionPlotter(PlotSettings("Plot of h(x)"), h, 0, 1000, 2)
     plot.plot()
     
 if __name__ == "__main__":
